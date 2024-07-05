@@ -74,9 +74,11 @@ void freeClientReplyValue(void *o) {
 }
 
 /* This function links the client to the global linked list of clients.
- * unlinkClient() does the opposite, among other things. */
+ * unlinkClient() does the opposite, among other things.
+ * 该函数将客户端链接到客户端的全局链表。 unlinkClient() 的作用恰恰相反。
+ */
 void linkClient(client *c) {
-    listAddNodeTail(server.clients,c);
+    listAddNodeTail(server.clients,c); // 将client添加到server.clients链表的尾部
     /* Note that we remember the linked list node where the client is stored,
      * this way removing the client in unlinkClient() will not require
      * a linear scan, but just a constant time operation. */
@@ -115,7 +117,7 @@ client *createClient(connection *conn) {
         connEnableTcpNoDelay(conn);
         if (server.tcpkeepalive)
             connKeepAlive(conn,server.tcpkeepalive);
-        connSetReadHandler(conn, readQueryFromClient);
+        connSetReadHandler(conn, readQueryFromClient); // 设置读事件处理器
         connSetPrivateData(conn, c);
     }
     c->buf = zmalloc_usable(PROTO_REPLY_CHUNK_BYTES, &c->buf_usable_size);
@@ -129,7 +131,7 @@ client *createClient(connection *conn) {
 #else
     c->resp = 2;
 #endif
-    c->conn = conn;
+    c->conn = conn; // 将socket连接分配给client
     c->name = NULL;
     c->lib_name = NULL;
     c->lib_ver = NULL;
@@ -1321,7 +1323,9 @@ void acceptCommonHandler(connection *conn, int flags, char *ip) {
      *
      * Admission control will happen before a client is created and connAccept()
      * called, because we don't want to even start transport-level negotiation
-     * if rejected. */
+     * if rejected.
+     * 限制我们同时进行的连接数量。准入控制将在创建客户端和调用 connAccept() 之前发生，因为如果被拒绝，我们甚至不想启动传输级协商。
+     */
     if (listLength(server.clients) + getClusterConnectionsCount()
         >= server.maxclients)
     {
@@ -1343,7 +1347,9 @@ void acceptCommonHandler(connection *conn, int flags, char *ip) {
         return;
     }
 
-    /* Create connection and client */
+    /* Create connection and client
+     * 为连接创建客户端
+     */
     if ((c = createClient(conn)) == NULL) {
         char addr[NET_ADDR_STR_LEN] = {0};
         char laddr[NET_ADDR_STR_LEN] = {0};
@@ -1366,6 +1372,13 @@ void acceptCommonHandler(connection *conn, int flags, char *ip) {
      * 2. Schedule a future call to clientAcceptHandler().
      *
      * Because of that, we must do nothing else afterwards.
+     *
+     * 发起接受。
+     * 请注意，connAccept() 在这里可以自由地执行两件事：
+     *  1. 立即调用 clientAcceptHandler()；
+     *  2. 安排将来对 clientAcceptHandler() 的调用。
+     *
+     *  因此，之后我们不能做任何其他事情。
      */
     if (connAccept(conn, clientAcceptHandler) == C_ERR) {
         if (connGetState(conn) == CONN_STATE_ERROR)
@@ -2637,7 +2650,9 @@ int processInputBuffer(client *c) {
 
     return C_OK;
 }
-
+/*
+ *  This function is called every time there is data to read for a client.
+ */
 void readQueryFromClient(connection *conn) {
     client *c = connGetPrivateData(conn);
     int nread, big_arg = 0;
@@ -2741,7 +2756,9 @@ void readQueryFromClient(connection *conn) {
     }
 
     /* There is more data in the client input buffer, continue parsing it
-     * and check if there is a full command to execute. */
+     * and check if there is a full command to execute.
+     * 客户端输入缓冲区中有更多数据，继续解析并检查是否有完整的命令要执行。
+     */
     if (processInputBuffer(c) == C_ERR)
          c = NULL;
 

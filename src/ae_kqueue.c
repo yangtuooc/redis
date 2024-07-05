@@ -40,7 +40,7 @@ typedef struct aeApiState {
     /* Events mask for merge read and write event.
      * To reduce memory consumption, we use 2 bits to store the mask
      * of an event, so that 1 byte will store the mask of 4 events. */
-    char *eventsMask; 
+    char *eventsMask;
 } aeApiState;
 
 #define EVENT_MASK_MALLOC_SIZE(sz) (((sz) + 3) / 4)
@@ -152,11 +152,17 @@ static int aeApiPoll(aeEventLoop *eventLoop, struct timeval *tvp) {
          * However, under kqueue, read and write events would be separate
          * events, which would make it impossible to control the order of
          * reads and writes. So we store the event's mask we've got and merge
-         * the same fd events later. */
+         * the same fd events later.
+         * 通常我们先执行读事件，然后执行写事件。
+         * 当障碍设置好后，我们将进行相反的操作。
+         *
+         * 然而，在kqueue下，读取和写入事件将是单独的事件，这将导致无法控制读取和写入的顺序。
+         * 因此，我们存储我们获得的事件掩码，并稍后合并相同的 fd 事件。
+         */
         for (j = 0; j < retval; j++) {
             struct kevent *e = state->events+j;
             int fd = e->ident;
-            int mask = 0; 
+            int mask = 0;
 
             if (e->filter == EVFILT_READ) mask = AE_READABLE;
             else if (e->filter == EVFILT_WRITE) mask = AE_WRITABLE;
@@ -172,6 +178,11 @@ static int aeApiPoll(aeEventLoop *eventLoop, struct timeval *tvp) {
             int mask = getEventMask(state->eventsMask, fd);
 
             if (mask) {
+                /*
+                 * 如果 mask 不为 0，说明有事件，将事件添加到 fired 数组中
+                 * fired 数组是当前发生的事件的集合，每个事件是一个 aeFiredEvent 结构
+                 * fd 是事件的文件描述符，mask 是事件的类型
+                 */
                 eventLoop->fired[numevents].fd = fd;
                 eventLoop->fired[numevents].mask = mask;
                 resetEventMask(state->eventsMask, fd);

@@ -207,6 +207,7 @@ static inline int connSetWriteHandler(connection *conn, ConnectionCallbackFunc f
 
 /* Register a read handler, to be called when the connection is readable.
  * If NULL, the existing handler is removed.
+ * 注册一个读取处理程序，当连接可读时调用。如果为 NULL，则删除现有处理程序。
  */
 static inline int connSetReadHandler(connection *conn, ConnectionCallbackFunc func) {
     return conn->type->set_read_handler(conn, func);

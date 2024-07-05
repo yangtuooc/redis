@@ -150,7 +150,7 @@ void _serverLog(int level, const char *fmt, ...) {
     serverLogRaw(level,msg);
 }
 
-/* Low level logging from signal handler. Should be used with pre-formatted strings. 
+/* Low level logging from signal handler. Should be used with pre-formatted strings.
    See serverLogFromHandler. */
 void serverLogRawFromHandler(int level, const char *msg) {
     int fd;
@@ -1461,7 +1461,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
      * a higher frequency. */
     run_with_period(1000) {
         if ((server.aof_state == AOF_ON || server.aof_state == AOF_WAIT_REWRITE) &&
-            server.aof_last_write_status == C_ERR) 
+            server.aof_last_write_status == C_ERR)
             {
                 flushAppendOnlyFile(0);
             }
@@ -1471,8 +1471,8 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
     updatePausedActions();
 
     /* Replication cron function -- used to reconnect to master,
-     * detect transfer failures, start background RDB transfers and so forth. 
-     * 
+     * detect transfer failures, start background RDB transfers and so forth.
+     *
      * If Redis is trying to failover then run the replication cron faster so
      * progress on the handshake happens more quickly. */
     if (server.failover_state != NO_FAILOVER) {
@@ -1699,7 +1699,7 @@ void beforeSleep(struct aeEventLoop *eventLoop) {
      * processUnblockedClients(), so if there are multiple pipelined WAITs
      * and the just unblocked WAIT gets blocked again, we don't have to wait
      * a server cron cycle in absence of other event loop events. See #6623.
-     * 
+     *
      * We also don't send the ACKs while clients are paused, since it can
      * increment the replication backlog, they'll be sent after the pause
      * if we are still the master. */
@@ -1709,7 +1709,7 @@ void beforeSleep(struct aeEventLoop *eventLoop) {
     }
 
     /* We may have received updates from clients about their current offset. NOTE:
-     * this can't be done where the ACK is received since failover will disconnect 
+     * this can't be done where the ACK is received since failover will disconnect
      * our clients. */
     updateFailoverStatus();
 
@@ -2439,7 +2439,9 @@ void closeListener(connListener *sfd) {
 }
 
 /* Create an event handler for accepting new connections in TCP or TLS domain sockets.
- * This works atomically for all socket fds */
+ * This works atomically for all socket fds
+ * 创建一个事件处理程序以接受 TCP 或 TLS 域套接字中的新连接。这对于所有套接字 fd 都是原子地工作的
+ */
 int createSocketAcceptHandler(connListener *sfd, aeFileProc *accept_handler) {
     int j;
 
@@ -2654,14 +2656,14 @@ void initServer(void) {
     adjustOpenFilesLimit();
     const char *clk_msg = monotonicInit();
     serverLog(LL_NOTICE, "monotonic clock: %s", clk_msg);
-    server.el = aeCreateEventLoop(server.maxclients+CONFIG_FDSET_INCR);
+    server.el = aeCreateEventLoop(server.maxclients+CONFIG_FDSET_INCR); // 创建事件循环池，大小为最大客户端数+CONFIG_FDSET_INCR
     if (server.el == NULL) {
         serverLog(LL_WARNING,
             "Failed creating the event loop. Error message: '%s'",
             strerror(errno));
         exit(1);
     }
-    server.db = zmalloc(sizeof(redisDb)*server.dbnum);
+    server.db = zmalloc(sizeof(redisDb)*server.dbnum); // 分配数据库空间
 
     /* Create the Redis databases, and initialize other internal state. */
     int slot_count_bits = 0;
@@ -2753,14 +2755,18 @@ void initServer(void) {
 
     /* Create the timer callback, this is our way to process many background
      * operations incrementally, like clients timeout, eviction of unaccessed
-     * expired keys and so forth. */
+     * expired keys and so forth.
+     * 创建计时器回调，这是我们增量处理许多后台操作的方法，例如客户端超时、驱逐未访问的过期密钥等。
+     */
     if (aeCreateTimeEvent(server.el, 1, serverCron, NULL, NULL) == AE_ERR) {
         serverPanic("Can't create event loop timers.");
         exit(1);
     }
 
     /* Register a readable event for the pipe used to awake the event loop
-     * from module threads. */
+     * from module threads.
+     * 为管道注册一个可读事件，用于从模块线程中唤醒事件循环。
+     */
     if (aeCreateFileEvent(server.el, server.module_pipe[0], AE_READABLE,
         modulePipeReadable,NULL) == AE_ERR) {
             serverPanic(
@@ -2859,7 +2865,9 @@ void initListeners(void) {
             serverLog(LL_WARNING, "Failed listening on port %u (%s), aborting.", listener->port, listener->ct->get_type(NULL));
             exit(1);
         }
-
+        /*
+         *  创建socket接收处理程序，用于接收处理客户端连接
+         */
         if (createSocketAcceptHandler(listener, connAcceptHandler(listener->ct)) != C_OK)
             serverPanic("Unrecoverable error creating %s listener accept handler.", listener->ct->get_type(NULL));
 
@@ -4181,12 +4189,12 @@ int processCommand(client *c) {
 
     /* If the server is paused, block the client until
      * the pause has ended. Replicas are never paused. */
-    if (!(c->flags & CLIENT_SLAVE) && 
+    if (!(c->flags & CLIENT_SLAVE) &&
         ((isPausedActions(PAUSE_ACTION_CLIENT_ALL)) ||
         ((isPausedActions(PAUSE_ACTION_CLIENT_WRITE)) && is_may_replicate_command)))
     {
         blockPostponeClient(c);
-        return C_OK;       
+        return C_OK;
     }
 
     /* Exec the command */
@@ -7186,7 +7194,7 @@ int main(int argc, char **argv) {
         serverLog(LL_NOTICE, "Configuration loaded");
     }
 
-    initServer();
+    initServer(); // 初始化服务
     if (background || server.pidfile) createPidFile();
     if (server.set_proc_title) redisSetProcTitle(NULL);
     redisAsciiArt();
@@ -7199,7 +7207,7 @@ int main(int argc, char **argv) {
         moduleLoadFromQueue();
     }
     ACLLoadUsersAtStartup();
-    initListeners();
+    initListeners(); // 初始化监听器
     if (server.cluster_enabled) {
         clusterInitLast();
     }
@@ -7248,7 +7256,7 @@ int main(int argc, char **argv) {
     redisSetCpuAffinity(server.server_cpulist);
     setOOMScoreAdj(-1);
 
-    aeMain(server.el);
+    aeMain(server.el); // 开始事件循环
     aeDeleteEventLoop(server.el);
     return 0;
 }

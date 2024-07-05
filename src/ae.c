@@ -338,7 +338,19 @@ static int processTimeEvents(aeEventLoop *eventLoop) {
  * if flags has AE_CALL_AFTER_SLEEP set, the aftersleep callback is called.
  * if flags has AE_CALL_BEFORE_SLEEP set, the beforesleep callback is called.
  *
- * The function returns the number of events processed. */
+ * The function returns the number of events processed.
+ *
+ * 处理每个挂起的文件事件，然后处理每个挂起的时间事件（可能由刚刚处理的文件事件回调注册）。
+ * 如果没有特殊标志，该函数将休眠，直到触发某些文件事件，或者下次事件发生时（如果有）。
+ *
+ * 如果 flags 为 0，则该函数不执行任何操作并返回。
+ * 如果 flags 设置了 AE_ALL_EVENTS，则处理所有类型的事件。
+ * 如果标志设置了 AE_FILE_EVENTS，则处理文件事件。
+ * 如果标志设置了 AE_TIME_EVENTS，则处理时间事件。
+ * 如果 flags 设置了 AE_DONT_WAIT，则在处理完所有无需等待即可处理的事件后，该函数会尽快返回。
+ * 如果 flags 设置了 AE_CALL_AFTER_SLEEP，则调用 aftersleep 回调。
+ * 如果 flags 设置了 AE_CALL_BEFORE_SLEEP，则调用 beforesleep 回调。该函数返回已处理的事件数。
+ */
 int aeProcessEvents(aeEventLoop *eventLoop, int flags)
 {
     int processed = 0, numevents;
@@ -376,7 +388,11 @@ int aeProcessEvents(aeEventLoop *eventLoop, int flags)
             }
         }
         /* Call the multiplexing API, will return only on timeout or when
-         * some event fires. */
+         * some event fires.
+         * 调用多路复用 API，仅在超时或某些事件触发时返回。
+         *
+         * numevents 表示触发的事件数量。
+         */
         numevents = aeApiPoll(eventLoop, tvp);
 
         /* Don't process file events if not requested. */
@@ -404,7 +420,12 @@ int aeProcessEvents(aeEventLoop *eventLoop, int flags)
              * after the readable. In such a case, we invert the calls.
              * This is useful when, for instance, we want to do things
              * in the beforeSleep() hook, like fsyncing a file to disk,
-             * before replying to a client. */
+             * before replying to a client.
+             * 通常我们先执行可读事件，然后执行可写事件。这很有用，因为有时我们可以在处理查询后立即提供查询的回复。
+             * 但是，如果在掩码中设置了 AE_BARRIER，我们的应用程序会要求我们执行相反的操作：永远不要在可读事件之后触发可写事件。
+             * 在这种情况下，我们会反转调用。
+             * 例如，当我们想要在回复客户端之前在 beforeSleep() 挂钩中执行操作（例如将文件同步到磁盘）时，这非常有用。
+             */
             int invert = fe->mask & AE_BARRIER;
 
             /* Note the "fe->mask & mask & ..." code: maybe an already
@@ -414,7 +435,7 @@ int aeProcessEvents(aeEventLoop *eventLoop, int flags)
              * Fire the readable event if the call sequence is not
              * inverted. */
             if (!invert && fe->mask & mask & AE_READABLE) {
-                fe->rfileProc(eventLoop,fd,fe->clientData,mask);
+                fe->rfileProc(eventLoop,fd,fe->clientData,mask); // 执行可读事件
                 fired++;
                 fe = &eventLoop->events[fd]; /* Refresh in case of resize. */
             }
@@ -422,7 +443,7 @@ int aeProcessEvents(aeEventLoop *eventLoop, int flags)
             /* Fire the writable event. */
             if (fe->mask & mask & AE_WRITABLE) {
                 if (!fired || fe->wfileProc != fe->rfileProc) {
-                    fe->wfileProc(eventLoop,fd,fe->clientData,mask);
+                    fe->wfileProc(eventLoop,fd,fe->clientData,mask); // 执行可写事件
                     fired++;
                 }
             }
@@ -434,7 +455,7 @@ int aeProcessEvents(aeEventLoop *eventLoop, int flags)
                 if ((fe->mask & mask & AE_READABLE) &&
                     (!fired || fe->wfileProc != fe->rfileProc))
                 {
-                    fe->rfileProc(eventLoop,fd,fe->clientData,mask);
+                    fe->rfileProc(eventLoop,fd,fe->clientData,mask); // 执行可读事件
                     fired++;
                 }
             }

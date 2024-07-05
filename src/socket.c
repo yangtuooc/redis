@@ -80,6 +80,9 @@ static connection *connCreateAcceptedSocket(int fd, void *priv) {
     return conn;
 }
 
+/*
+ *  socket连接的connect处理程序
+ */
 static int connSocketConnect(connection *conn, const char *addr, int port, const char *src_addr,
         ConnectionCallbackFunc connect_handler) {
     int fd = anetTcpNonBlockBestEffortBindConnect(NULL,addr,port,src_addr);
@@ -93,8 +96,14 @@ static int connSocketConnect(connection *conn, const char *addr, int port, const
     conn->state = CONN_STATE_CONNECTING;
 
     conn->conn_handler = connect_handler;
-    aeCreateFileEvent(server.el, conn->fd, AE_WRITABLE,
-            conn->type->ae_handler, conn);
+    // 将当前连接的fd注册到事件循环中
+    aeCreateFileEvent(
+            server.el,
+            conn->fd,
+        AE_WRITABLE,
+            conn->type->ae_handler, // readQueryFromClient
+            conn
+            );
 
     return C_OK;
 }
@@ -287,6 +296,9 @@ static void connSocketEventHandler(struct aeEventLoop *el, int fd, void *clientD
     }
 }
 
+/*
+ * socket连接的accept处理程序
+ */
 static void connSocketAcceptHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
     int cport, cfd;
     int max = server.max_new_conns_per_cycle;
